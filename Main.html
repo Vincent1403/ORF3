@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scratch Card – Fixed 20vw Bevel Marker</title>
+  <style>
+    html, body { height: 100%; margin: 0; background:#0b0b0c; }
+    .stage {
+      position: relative; width: 100%; height: 100%;
+      /* Background (revealed image) */
+      background-image:url("background.jpg");
+      background-size: cover;
+      background-position: center;
+    }
+    canvas {
+      position:absolute; inset:0;
+      width:100%; height:100%;
+      display:block; touch-action:none;
+    }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <canvas id="scratch"></canvas>
+  </div>
+
+  <script>
+    // Foreground image (the one that gets erased)
+    const FG_SRC = "foreground.jpg";
+
+    const stage  = document.getElementById('stage');
+    const canvas = document.getElementById('scratch');
+    const ctx    = canvas.getContext('2d', { alpha: true });
+
+    const fg = new Image();
+
+    let dpr = Math.max(1, window.devicePixelRatio || 1);
+    let brushPx = Math.max(1, Math.round(window.innerWidth * 0.10)); // 10vw
+    let stroking = false;
+
+    function fitCover(sw, sh, dw, dh){
+      const sr = sw/sh, dr = dw/dh;
+      let w, h; if (sr > dr) { h = dh; w = h*sr; } else { w = dw; h = w/sr; }
+      return { x:(dw-w)/2, y:(dh-h)/2, w, h };
+    }
+
+    function resizeCanvas(){
+      const r = stage.getBoundingClientRect();
+      dpr = Math.max(1, window.devicePixelRatio || 1);
+      canvas.width  = Math.max(1, Math.floor(r.width  * dpr));
+      canvas.height = Math.max(1, Math.floor(r.height * dpr));
+      ctx.setTransform(1,0,0,1,0,0);
+      ctx.scale(dpr, dpr);
+      brushPx = Math.max(1, Math.round(window.innerWidth * 0.10));
+      redrawForeground();
+    }
+
+    function redrawForeground(){
+      const r = stage.getBoundingClientRect();
+      const f = fitCover(fg.naturalWidth || 1, fg.naturalHeight || 1, r.width, r.height);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.clearRect(0,0,r.width,r.height);
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(fg, f.x, f.y, f.w, f.h);
+      endStroke();
+    }
+
+    function startStroke(x, y){
+      if (stroking) return;
+      stroking = true;
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.lineCap   = 'butt';
+      ctx.lineJoin  = 'bevel';
+      ctx.miterLimit= 2;
+      ctx.lineWidth = brushPx;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + 0.001, y + 0.001); // tiny stroke to start
+      ctx.stroke();
+    }
+
+    function addPoints(points){
+      if (!stroking) return;
+      for (const p of points){
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+    }
+
+    function endStroke(){
+      if (!stroking) return;
+      stroking = false;
+      ctx.closePath();
+    }
+
+    function toCanvasXY(clientX, clientY){
+      const r = stage.getBoundingClientRect();
+      return { x: clientX - r.left, y: clientY - r.top };
+    }
+
+    // Pointer events
+    canvas.addEventListener('pointerenter', (e)=>{
+      const {x, y} = toCanvasXY(e.clientX, e.clientY);
+      startStroke(x, y);
+    });
+
+    canvas.addEventListener('pointermove', (e)=>{
+      const events = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+      const pts = events.map(ev => toCanvasXY(ev.clientX, ev.clientY));
+      if (!stroking && pts.length) startStroke(pts[0].x, pts[0].y);
+      addPoints(pts);
+    });
+
+    canvas.addEventListener('pointerleave', endStroke);
+    canvas.addEventListener('pointercancel', endStroke);
+
+    // Touch fallback
+    canvas.addEventListener('touchstart', (e)=>{
+      if (e.cancelable) e.preventDefault();
+      const t = e.touches[0]; if (!t) return;
+      const {x, y} = toCanvasXY(t.clientX, t.clientY);
+      startStroke(x, y);
+    }, {passive:false});
+
+    canvas.addEventListener('touchmove', (e)=>{
+      if (e.cancelable) e.preventDefault();
+      const pts = Array.from(e.touches).map(t => toCanvasXY(t.clientX, t.clientY));
+      if (pts.length) {
+        if (!stroking) startStroke(pts[0].x, pts[0].y);
+        addPoints(pts);
+      }
+    }, {passive:false});
+
+    canvas.addEventListener('touchend', endStroke);
+    canvas.addEventListener('touchcancel', endStroke);
+
+    // Reset on R
+    window.addEventListener('keydown', (e)=>{
+      if (e.key && e.key.toLowerCase() === 'r') redrawForeground();
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // Init
+    fg.onload = resizeCanvas;
+    fg.onerror = resizeCanvas;
+    fg.src = FG_SRC;
+  </script>
+</body>
+</html>
