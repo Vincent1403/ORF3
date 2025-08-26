@@ -36,7 +36,7 @@
     const fg = new Image();
 
     let dpr = Math.max(1, window.devicePixelRatio || 1);
-    let brushPx = Math.max(1, Math.round(window.innerWidth * 0.10)); // 10vw
+    let brushPx = Math.max(1, Math.round(window.innerWidth * 0.20)); // 10vw
     let stroking = false;
 
     function fitCover(sw, sh, dw, dh){
@@ -52,7 +52,7 @@
       canvas.height = Math.max(1, Math.floor(r.height * dpr));
       ctx.setTransform(1,0,0,1,0,0);
       ctx.scale(dpr, dpr);
-      brushPx = Math.max(1, Math.round(window.innerWidth * 0.10));
+      brushPx = Math.max(1, Math.round(window.innerWidth * 0.20));
       redrawForeground();
     }
 
@@ -149,4 +149,3 @@
   </script>
 </body>
 </html>
-
